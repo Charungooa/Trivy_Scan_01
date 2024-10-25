@@ -23,26 +23,20 @@ jobs:
       - name: Install Trivy Locally
         run: |
           mkdir -p $HOME/bin
+          export PATH=$PATH:$HOME/bin
           curl -L https://github.com/aquasecurity/trivy/releases/download/v0.56.1/trivy_0.56.1_Linux-64bit.tar.gz -o trivy.tar.gz
           tar zxvf trivy.tar.gz
           mv trivy $HOME/bin/
           rm trivy.tar.gz
-          echo "$HOME/bin" >> $GITHUB_PATH  # Append bin directory to PATH
 
       # Step 3: Pull the Alpine Docker image using Podman
       - name: Pull Docker Image with Podman
-        run: podman pull docker.io/library/alpine:latest
+        run: |
+          podman pull docker.io/library/alpine:latest
 
-      # Step 4: Configure Trivy Token for Rate Limit
-      - name: Set up Trivy Token
-        env:
-          TRIVY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Step 5: Scan the Docker image using Trivy (Alpine image)
+      # Step 4: Scan the Docker image using Trivy (Alpine image)
       - name: Scan Docker Image with Trivy
-        env:
-          DOCKER_HOST: "unix://$XDG_RUNTIME_DIR/podman/podman.sock"
         run: |
           podman images  # Verify the image exists
-          $HOME/bin/trivy image --cache-dir $HOME/.trivycache alpine:latest || \
-          (echo "Rate limit hit, retrying after waiting." && sleep 60 && $HOME/bin/trivy image alpine:latest)
+          export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock  # Use Podman socket
+          trivy image alpine:latest
